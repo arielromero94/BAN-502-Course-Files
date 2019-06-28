@@ -1,0 +1,218 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+```{r}
+library(tidyverse)
+library(MASS)
+library(caret)
+library(ROCR)
+```
+
+```{r}
+parole <- read_csv("parole.csv")
+
+head(parole)
+```
+
+```{r}
+parole = parole %>% mutate(male = as_factor(as.character(male))) %>%
+mutate(male = fct_recode(male,
+"female" = "0",
+"male" = "1")) %>% mutate(race = as_factor(as.character(race))) %>%
+mutate(race = fct_recode(race,
+"white" = "1",
+"other" = "2")) %>% mutate(state = as_factor(as.character(state))) %>%
+mutate(state = fct_recode(state,
+"Kentucky" = "2",
+"Louisiana" = "3",
+"Virginia" = "4",
+"other" = "1")) %>% mutate(crime = as_factor(as.character(crime))) %>%
+mutate(crime = fct_recode(crime,
+"larceny" = "2",
+"drug-related" = "3",
+"driving-related" = "4",
+"other" = "1")) %>% mutate(multiple.offenses = as_factor(as.character(multiple.offenses))) %>%
+mutate(multiple.offenses = fct_recode(multiple.offenses,
+"otherwise" = "0",
+"multiple offenses" = "1")) %>% mutate(violator = as_factor(as.character(violator))) %>%
+mutate(violator = fct_recode(violator,
+"non-violator" = "0",
+"violator" = "1"))
+```
+
+Task 1:
+
+```{r}
+set.seed(12345)
+train.rows = createDataPartition(y = parole$violator, p=0.7, list = FALSE)
+train = parole[train.rows,] 
+test = parole[-train.rows,]
+```
+
+
+Task2:
+
+```{r}
+ggplot(train,aes(x=male, fill=violator)) + geom_bar(position = "fill")
+
+ggplot(train,aes(x=race, fill=violator)) + geom_bar(position = "fill")
+
+ggplot(train, aes(x=violator, y = age)) + geom_boxplot()
+
+ggplot(train, aes(x=state, fill=violator)) + geom_bar(position = "fill")
+
+ggplot(train, aes(x=violator, y = time.served)) + geom_boxplot()
+
+ggplot(train, aes(x=violator, y = max.sentence)) + geom_boxplot()
+
+ggplot(train, aes(x=multiple.offenses, fill=violator)) + geom_bar(position = "fill")
+
+ggplot(train, aes(x=crime, fill=violator)) + geom_bar(position = "fill")
+
+```
+
+Upon reviewing the visualizations in task 2, I have identied that the state, multiple.offenses, and crime variables are the ones who would be most predictive of the response variable violator. This is because in the three graphics, you are able to clearly see the differences between the categories and how the response variable is affected by them. 
+
+Task3:
+
+```{r}
+logregmod <- glm(violator ~ multiple.offenses, train, family = "binomial")
+
+summary(logregmod)
+```
+
+The positive coffecieint of the multiple.offenses variable suggests that the probability of an individual violating parole, given that they have multiple offenses, increases. The AIC value is low, 335.5. We will reference this number when determining the best model. 
+
+Task 4:
+
+```{r}
+allmod = glm(violator ~., train, family = "binomial") 
+  
+emptymod = glm(violator~1, train, family = "binomial")  
+```
+
+```{r}
+backmod = stepAIC(allmod, direction = "backward", trace = TRUE) 
+summary(backmod)
+```
+
+Backward stepwise was utilized to determine the best model to predict whether an individal will violate their parole. The AIC value of the model was significantly lower than the model using just the multiple.offenses variable, the AIC value is 252.28. The model appears to be of good quality. The variables that are significant in thise model is raceother, stateLouisiana, and multiple offenses. An interpretation of this model is if someone is from either Kentucky or Virginia, the probabily of parole being violated goes down because of the negative value. This is due to the fact that the data favors those states who have less amount of parole violators. In my opinion, being from a certain state does not necessarily predict whether someone will violate their parole or not. 
+
+Task 5:
+
+```{r}
+logregmod2 <- glm(violator ~ multiple.offenses + state + race, train, family = "binomial")
+
+summary(logregmod2)
+```
+
+The second logistic regression model seems be about the same than the one created by the backward stepwise. The second logistic regression model has an AIC value of 252.42 compared to 252.28. I believe this is due to the fact of the couple of variables missing from the first model. 
+
+Task 6:
+
+```{r}
+Parolee1 = data.frame(race = c("white","other"), multiple.offenses = c("multiple offenses","otherwise"), state = c("Louisiana","Kentucky"))
+
+predict(logregmod2, Parolee1, type="response")
+
+```
+
+Parolee 1 has about a 41% chance of violating their parole, and Parolee 2 has about a 12% chance of violating theirs. 
+
+TasK 7:
+```{r}
+predictions = predict(logregmod2, train, type="response")
+```
+
+
+```{r}
+
+
+ROCRpred = prediction(predictions, train$violator) 
+
+###You shouldn't need to ever change the next two lines:
+ROCRperf = performance(ROCRpred, "tpr", "fpr")
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+```
+
+Task 8:
+
+```{r}
+opt.cut = function(perf, pred){
+    cut.ind = mapply(FUN=function(x, y, p){
+        d = (x - 0)^2 + (y-1)^2
+        ind = which(d == min(d))
+        c(sensitivity = y[[ind]], specificity = 1-x[[ind]], 
+            cutoff = p[[ind]])
+    }, perf@x.values, perf@y.values, pred@cutoffs)
+}
+print(opt.cut(ROCRperf, ROCRpred))
+```
+
+```{r}
+t1 = table(train$violator,predictions > 0.1161882)
+t1
+ 
+(t1[1,1]+t1[2,2])/nrow(train)
+```
+sensitivity: 0.7818182
+
+specificity: 0.8373206
+
+Accuracy: 0.8414376
+
+Implcations of incorrectly classifying a parolee would be someone being misclassified as violating their parole would serve a longer sentnece, or someone who did actually violate their parole and not be classified could be enticed to do something they should not be doing. 
+
+Task 9:
+
+```{r}
+t1 = table(train$violator,predictions > 0.25)
+t1
+
+(t1[1,1]+t1[2,2])/nrow(train)
+```
+
+
+```{r}
+t1 = table(train$violator,predictions > 0.65)
+t1
+
+(t1[1,1]+t1[2,2])/nrow(train)
+```
+
+
+```{r}
+t1 = table(train$violator,predictions > 1)
+t1
+
+(t1[1])/nrow(train)
+```
+
+Task 10: 
+
+```{r}
+predictionsTest = predict(logregmod2, test, type="response")
+```
+
+
+```{r}
+
+
+ROCRpred = prediction(predictionsTest, test$violator) 
+
+###You shouldn't need to ever change the next two lines:
+ROCRperf = performance(ROCRpred, "tpr","fpr")
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+```
+
+```{r}
+t1 = table(test$violator,predictionsTest > 0.65)
+t1
+
+(t1[1,1]+t1[2,2])/nrow(test)
+```
+
+The accuracy for the of the model, using the testing set, is .90. 
+

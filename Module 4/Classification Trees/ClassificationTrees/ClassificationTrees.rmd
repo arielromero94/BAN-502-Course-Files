@@ -1,0 +1,152 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+
+Classification Trees
+
+Ariel Romero
+
+```{r}
+library(tidyverse)
+library(caret)
+library(rpart)
+library(rattle)
+library(RColorBrewer)
+```
+
+
+```{r}
+parole <- read_csv("parole (1).csv")
+
+Blood <- read_csv("Blood.csv")
+
+parole = parole %>% mutate(male = as_factor(as.character(male))) %>%
+mutate(male = fct_recode(male,
+"female" = "0",
+"male" = "1")) %>% mutate(race = as_factor(as.character(race))) %>%
+mutate(race = fct_recode(race,
+"white" = "1",
+"other" = "2")) %>% mutate(state = as_factor(as.character(state))) %>%
+mutate(state = fct_recode(state,
+"Kentucky" = "2",
+"Louisiana" = "3",
+"Virginia" = "4",
+"other" = "1")) %>% mutate(crime = as_factor(as.character(crime))) %>%
+mutate(crime = fct_recode(crime,
+"larceny" = "2",
+"drug-related" = "3",
+"driving-related" = "4",
+"other" = "1")) %>% mutate(multiple.offenses = as_factor(as.character(multiple.offenses))) %>%
+mutate(multiple.offenses = fct_recode(multiple.offenses,
+"otherwise" = "0",
+"multiple offenses" = "1")) %>% mutate(violator = as_factor(as.character(violator))) %>%
+mutate(violator = fct_recode(violator,
+"non-violator" = "0",
+"violator" = "1"))
+
+```
+
+```{r}
+set.seed(12345)
+train.rows = createDataPartition(y = parole$violator, p=0.7, list = FALSE)
+train = parole[train.rows,] 
+test = parole[-train.rows,]
+```
+
+```{r}
+tree1 = rpart(violator ~., train, method = "class")
+fancyRpartPlot(tree1)
+```
+
+A 40 year old parolee from Louisiana who served a 5 year prison sentence would be classified as a non-violator. The first prompt was if the state equaled other, Kentucky, or Virignina, the answer is no. The second prompt asked if their age was less than 40, the answer is yes. The final prompt asked if their time served was greater than 2.6, the answer is also yes which classified him as a non-violator. 
+
+```{r}
+printcp(tree1)
+plotcp(tree1)
+```
+
+0.054545 is the cp value that should be selected. 
+
+```{r}
+tree2 = prune(tree1,cp= tree1$cptable[which.min(tree1$cptable[,"xerror"]),"CP"])
+
+printcp(tree2)
+```
+
+```{r}
+treepred = predict(tree2,train,type = "class")
+head(treepred)
+```
+
+The class "non-violator" is the majority class. 
+
+```{r}
+treepredtrain = predict(tree1, train, type="class")
+
+confusionMatrix(treepredtrain, train$violator)
+
+```
+
+The predicition for the train data, from the classification tree have the following characteristics: its accuracy is 90.7%, which I believe is good, the sensitivity is 96.17% and the specificity is 49.09%. 
+
+
+```{r}
+treepredtest = predict(tree1, test, type="class")
+
+confusionMatrix(treepredtest, test$violator)
+```
+
+On the testing data, the accuracy goes down a little to 86.14%, sensitivity stays pretty consistent at 94.97%, specifcity goes down considerably to 17.39%. 
+
+```{r}
+Blood = Blood %>% mutate(DonatedMarch=as_factor(as.character(DonatedMarch))) %>% mutate(DonatedMarch = fct_recode(DonatedMarch, "No" = "0", "Yes" = "1"))
+```
+
+```{r}
+set.seed(1234)
+train.rows = createDataPartition(y = Blood$DonatedMarch, p=0.7, list = FALSE)
+train2 = Blood[train.rows,] 
+test2 = Blood[-train.rows,]
+```
+
+```{r}
+BloodClassTree = rpart(DonatedMarch ~., train2, method = "class")
+
+fancyRpartPlot(BloodClassTree)
+
+```
+
+```{r}
+printcp(BloodClassTree)
+plotcp(BloodClassTree)
+
+```
+
+```{r}
+BloodClassTree2= prune(BloodClassTree,cp= BloodClassTree$cptable[which.min(tree1$cptable[,"xerror"]),"CP"])
+
+printcp(BloodClassTree2)
+
+```
+
+
+```{r}
+treepredtrain2 = predict(BloodClassTree2, train2, type="class")
+
+head(treepredtrain2)
+
+confusionMatrix(treepredtrain2, train2$DonatedMarch)
+
+```
+
+```{r}
+treepredtest2 = predict(BloodClassTree2, test2, type="class")
+
+head(treepredtest2)
+
+confusionMatrix(treepredtest2, test2$DonatedMarch)
+```
+
+The accuracy on both predictions from the classification trees are around 76% which I would deem good. One thing I am concerned about is that on both predictions, the sensitivity is 0 and the specificty is 1. The accuaracy is significant against the naive rate in both models. 

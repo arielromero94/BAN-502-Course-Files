@@ -1,0 +1,146 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+#Multiple Linear Regression and Special Issues
+
+#Ariel Romero
+
+```{r}
+library(tidyverse)
+library(GGally)
+library(MASS)
+
+bike <- read_csv("hour.csv")
+
+bike = bike %>% mutate(season = as_factor(as.character(season))) %>%
+mutate(season = fct_recode(season,
+"Spring" = "1",
+"Summer" = "2",
+"Fall" = "3",
+"Winter" = "4")) %>% mutate(yr =as_factor(yr)) %>% 
+  mutate(mnth=as_factor(mnth)) %>% mutate(hr=as_factor(hr))  %>% mutate(holiday = as_factor(as.character(holiday))) %>%
+mutate(holiday = fct_recode(holiday,
+"NotHoliday" = "0",
+"Holiday" = "1")) %>% mutate(workingday = as_factor(as.character(workingday))) %>%
+mutate(workingday = fct_recode(workingday,
+"NotWorkingDay" = "0",
+"WorkingDay" = "1")) %>% mutate(weathersit = as_factor(as.character(weathersit))) %>%
+mutate(weathersit = fct_recode(weathersit,
+"NoPrecip" = "1",
+"Misty" = "2", "LightPrecip"= "3","HeavyPrecip" = "4")) %>%
+   mutate(weekday = as_factor(as.character(weekday))) %>%
+mutate(weekday = fct_recode(weekday,
+"Sunday" = "0",
+"Monday" = "1",
+"Tuesday" = "2",
+"Wednesday" = "3",
+"Thursday" = "4",
+"Friday" = "5",
+"Saturday" = "6"))
+
+glimpse(bike)
+
+ggcorr(bike, label=TRUE)
+
+```
+
+We convert "yr", "mnth", and "hr" in to factors because statistical models treat categorical data differently, the conversions ensure that that the modeling function treats the data correctly. 
+
+Task 2: It appears that atemp and temp are the variables that are best correlated with count.
+
+```{r}
+ggplot(bike,aes(x=hr,y=count)) + geom_boxplot()
+
+ggplot(bike, aes(x=season,y=count)) + geom_boxplot()
+
+ggplot(bike, aes(x=yr,y=count)) + geom_boxplot()
+
+ggplot(bike, aes(x=mnth,y=count)) + geom_boxplot()
+
+ggplot(bike, aes(x=holiday,y=count)) + geom_boxplot()
+
+ggplot(bike, aes(x=weekday,y=count)) + geom_boxplot()
+
+ggplot(bike, aes(x=workingday,y=count)) + geom_boxplot()
+
+ggplot(bike, aes(x=weathersit,y=count)) + geom_boxplot()
+```
+
+hr: Count is affected by hr because the time of day factors into whether people rent a bike. 
+
+season: The season of the year affects count because the the timing of year plays a factor as to when people decide to rent bikes.
+
+yr: I don't believe that yr plays affects count because it a certain year, cannot affect the number of bike rentals. 
+
+mnth: mnth can have an effect on count because a month is tied to a specific time of year which can affect the amount of bike rentals.
+
+holiday: holiday can affect count because it stands to reason that people will rent a bike if they have a day off or if there is a holiday special on rental bikes. 
+
+weekday: weekday can have an affect on count because there can be a specific day of the week a store can have a special or rental count can increase on weekends. 
+
+workingday: workingday can have an affect on count because the amountn of people who are available to rent a bike on a nonworking day increases. 
+
+weathersit: weathersit affects count because it is likely that weather affects the count of rental because of the condition of the day.
+
+```{r}
+bike = dplyr::select(bike,-c(instant, dteday, registered, casual))
+
+allmodel <- lm(count ~., bike)
+
+summary(allmodel)
+
+emptymodel <- lm(count ~1, bike)
+
+summary(emptymodel)
+
+```
+
+```{r}
+forwardmodel = stepAIC(emptymodel, direction ="forward", scope = list(upper=allmodel,lower=emptymodel), trace=TRUE)
+
+summary(forwardmodel)
+
+```
+
+The variables that are included in the forward model are:
+hr
+temp
+atemp   
+hum         
+mnth       
+season     
+yr          
+weathersit  
+windspeed   
+holiday    
+workingday
+weekday
+
+The adjusted R-squared value is 0.6854 and the p-value less than 0.05 which means the variables are significant. I believe that the model is acceptable in predicting count given all the variables. Many of the varibles that I thought made sense in affecting count appeared in the model. 
+
+```{r}
+backwardsmodel = stepAIC(allmodel,direction="backward", trace=TRUE)
+summary(backwardsmodel)
+```
+
+The backwards model is similar in the variables, coefficients of the variables, adjusted R-squared, and in p-value. 
+
+workingday could be directly correllated to the weekday which would hinder it from appearing in the model.
+
+```{r}
+
+bike = bike %>% mutate(yr= as.integer(yr)-1)
+
+allmodel <- lm(count ~., bike)
+
+emptymodel <- lm(count ~1, bike)
+
+forwardmodel = stepAIC(emptymodel, direction ="forward", scope = list(upper=allmodel,lower=emptymodel), trace=TRUE)
+
+summary(forwardmodel)
+
+```
+
+It does not appear as though the model has changed by converting yr as an integer.

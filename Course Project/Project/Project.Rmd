@@ -1,0 +1,256 @@
+#Ariel Romero
+
+## Course Project
+
+```{r}
+options(tidyverse.quiet = TRUE)
+library(tidyverse)
+library(VIM)
+library(mice)
+library(caret)
+library(ROCR)
+library(MASS)
+library(ranger)
+library(rpart)
+library(rattle)
+
+rain <- read_csv("rain.csv")
+
+str(rain)
+summary(rain)
+
+```
+
+```{r}
+
+ggplot(rain,aes(x=Date,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "Date", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=MinTemp,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "MinTemp", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=MaxTemp,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "MaxTemp", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=Rainfall,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "Rainfall", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=WindGustDir,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "WindGustDir", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=WindGustSpeed,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "WinfGustSpeed", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=WindDir9am,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "WindDir9am", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=WindDir3pm,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "WindDir3pm", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=WindSpeed9am,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "WindSpeed9am", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=WindSpeed3pm,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "WindSpeed3pm", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=Humidity9am ,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "Humidity9am ", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=Humidity3pm ,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "Humidity3pm ", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=Pressure9am ,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "Pressure9am ", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=Pressure3pm ,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "Pressure3pm ", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=Cloud9am ,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "Cloud9am ", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=Cloud3pm ,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "Cloud3pm ", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=Temp9am ,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "Temp9am ", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=Temp3pm ,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "Temp3pm ", y = "Rain Tomorrow")
+
+ggplot(rain,aes(x=RainToday ,y=RainTomorrow)) + geom_point() +
+theme_bw() + labs(x = "RainToday ", y = "Rain Tomorrow")
+```
+
+```{r}
+vim_plot = aggr(rain, numbers = TRUE, prop = c(TRUE, FALSE),cex.axis=.7) #Graphing missing data
+```
+
+```{r}
+ 
+rain = rain %>% mutate(RainToday = as.factor(RainToday)) %>% mutate(RainTomorrow = as.factor(RainTomorrow)) %>% mutate(WindGustDir = as.factor(WindGustDir)) %>% mutate(WindDir9am = as.factor(WindDir9am))  %>% mutate(WindDir3pm = as.factor(WindDir3pm))
+
+rain = rain %>% drop_na(Cloud3pm, Cloud9am, RainToday)
+
+imp_rain = mice(rain, m=1, method= 'pmm', printFlag = FALSE)
+
+rain_complete = complete(imp_rain)
+
+str(rain_complete)
+summary(rain_complete)
+```
+
+```{r}
+vim_plot2 = aggr(rain_complete, numbers = TRUE, prop = c(TRUE, FALSE),cex.axis=.7)
+```
+
+```{r}
+rain_complete= rain_complete[-1]
+
+set.seed(1234)
+train.rows = createDataPartition(y = rain_complete$RainTomorrow, p=0.7, list = FALSE) #70% in training
+RainComplete_train = rain_complete[train.rows,] 
+RainComplete_test = rain_complete[-train.rows,]
+
+```
+
+##Logistic Regression
+
+```{r}
+logregmod = glm(RainTomorrow ~., RainComplete_train, family = "binomial")
+
+allmod = glm(RainTomorrow ~., RainComplete_train, family = "binomial")
+emptymod = glm(RainTomorrow~1,RainComplete_train, family = "binomial")
+
+backmod = stepAIC(allmod, direction = "backward", trace = TRUE)
+summary(backmod)
+
+formod = stepAIC(emptymod, direction = "forward", trace = TRUE)
+#summary(formod)
+
+logremod2 = glm(RainTomorrow ~ MaxTemp + Rainfall + WindGustSpeed + WindDir9am + 
+    WindSpeed9am + WindSpeed3pm + Humidity3pm + Pressure9am + 
+    Pressure3pm + Cloud9am + Cloud3pm + Temp9am + RainToday,RainComplete_train, family = "binomial")
+
+
+
+
+```
+
+```{r}
+predictions = predict(logremod2, RainComplete_train, type = "response")
+head(predictions)
+
+ROCRpred = prediction(predictions, RainComplete_train$RainTomorrow) 
+
+t1 = table(RainComplete_train$RainTomorrow,predictions > .2541024)
+t1
+
+(t1[1,1]+t1[2,2])/nrow(RainComplete_train)
+
+###You shouldn't need to ever change the next two lines:
+ROCRperf = performance(ROCRpred, "tpr", "fpr")
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+
+opt.cut = function(perf, pred){
+    cut.ind = mapply(FUN=function(x, y, p){
+        d = (x - 0)^2 + (y-1)^2
+        ind = which(d == min(d))
+        c(sensitivity = y[[ind]], specificity = 1-x[[ind]], 
+            cutoff = p[[ind]])
+    }, perf@x.values, perf@y.values, pred@cutoffs)
+}
+print(opt.cut(ROCRperf, ROCRpred))
+
+```
+
+
+```{r}
+
+t1 = table(RainComplete_train$RainTomorrow,predictions > .53)
+t1
+
+(t1[1,1]+t1[2,2])/nrow(RainComplete_train)
+```
+
+```{r}
+
+predictionsTest = predict(logremod2, RainComplete_test, type = "response")
+
+t1 = table(RainComplete_test$RainTomorrow,predictionsTest > .53)
+t1
+
+(t1[1,1]+t1[2,2])/nrow(RainComplete_test)
+
+
+```
+
+
+##Classification Trees
+```{r}
+
+tree = rpart(RainTomorrow ~., RainComplete_train, method = "class")
+fancyRpartPlot(tree)
+
+tree2 = prune(tree, cp=tree$cptable[which.min(tree$cptable[,"xerror"]),"CP"])
+
+treepred = predict(tree, RainComplete_train, type = "class")
+
+fancyRpartPlot(tree)
+
+head(treepred)
+
+confusionMatrix(treepred,RainComplete_train$RainTomorrow,positive="Yes") 
+
+treepred_test = predict(tree, RainComplete_test, type = "class")
+head(treepred_test)
+
+confusionMatrix(treepred_test,RainComplete_test$RainTomorrow,positive="Yes")
+
+```
+
+##Random Forest
+
+```{r}
+# fit_control = trainControl(method = "cv",  
+#                            number = 10) #set up 10 fold cross-validation
+# 
+# 
+# 
+# set.seed(1234)  
+# rf_fit = train(x=RainComplete_train[,-19], y=RainComplete_train$RainTomorrow,
+#                  method = "ranger", 
+#                  importance = "permutation",
+#                  trControl = fit_control)
+
+```
+
+```{r}
+#Load RDS file
+
+rf_fit = readRDS("rf_fit.rds")
+```
+
+```{r}
+
+varImp(rf_fit)
+rf_fit
+predRFTrain = predict(rf_fit, RainComplete_train)
+head(predRFTrain)
+confusionMatrix(predRFTrain, RainComplete_train$RainTomorrow, positive = "Yes")
+
+```
+
+```{r}
+predRFTest = predict(rf_fit, RainComplete_test)
+head(predRFTest)
+confusionMatrix(predRFTest, RainComplete_test$RainTomorrow, positive = "Yes")
+
+```
+
+```{r}
+#save RDS
+#saveRDS(rf_fit, "rf_fit.rds")
+```
+
+
+

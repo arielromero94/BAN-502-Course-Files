@@ -1,0 +1,94 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+#Simple Linear Regression and Correlation
+
+##Ariel Romero
+
+```{r}
+library(tidyverse)
+library(GGally)
+
+air = airquality
+
+head(air)
+```
+
+a. The "air" dataset has data that measures the air quality in New York. The data captured ranges from May 1973 to September 1973.
+
+b. There are 6 variables and 153 observations in the dataset. 
+
+c. Yes, there is missing data. Primarily in the Ozone and Solar.R fields. 
+
+d. The variable to most likely be the response variable is "Ozone"
+
+In the "air2" column, there are 6 columns and 111 rows. 
+
+
+```{r}
+air2 = air %>% filter(!is.na(Ozone)) %>% filter(!is.na(Solar.R))
+
+ggpairs(air2)
+ggcorr(air2, label = TRUE)
+```
+
+a. Temperature is the variable that is most strongly correlated with the Ozone variable.
+
+b. Day is the the variable that is the least strongly correlated with the Ozone variable. 
+
+```{r}
+ggplot(data=air2, aes(x=Temp, y=Ozone)) + geom_point()
+```
+
+Ozone and Temp have a positive correlation.
+
+```{r}
+model1 <- lm(Ozone ~ Temp, air2)
+
+summary(model1)
+
+```
+
+a. Based on the R squared value,0.488, it seems that a good chunk of the data falls within the regression model, thus making it reasonable predictor. The p value associated with this value is less than .05, which means the the regression slope is significant. 
+
+```{r}
+confint(model1)
+```
+
+The range in which the slop coefficient likely falls is between 1.964787 and 2.913433
+
+```{r}
+ggplot(data=air2, aes(x=Temp, y=Ozone)) + geom_point() + geom_smooth(method="lm",se = FALSE, colour="red")
+```
+
+```{r}
+predict(model1, newdata= data.frame(Temp=c(80)), interval="predict")
+```
+
+```{r}
+ggplot(data = air2, aes(x=Day,y=Ozone))+geom_point()
+```
+
+It appears that there is no correlation between Day and Ozone. 
+
+```{r}
+model2 <- lm(Ozone ~ Day, air2)
+
+summary(model2)
+```
+
+a. In this linear regression model does appear to be a good predictor for how Day affects Ozone. The R squared value is practically 0, which means that almost none of the data falls on within the model. The p value is also greater than .05 which makes the slope none significant. 
+
+b. The range that the slop coefficient likely falls in is between -0.745321 and 0.7056539
+
+```{r}
+confint(model2)
+```
+
+
+```{r}
+ggplot(data=air2, aes(x=Day, y=Ozone)) + geom_point() + geom_smooth(method="lm",se = FALSE, colour="red")
+```
+

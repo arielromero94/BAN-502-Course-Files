@@ -1,0 +1,69 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+
+Task 1:
+
+```{r}
+
+#install.packages(tidyverse)
+library(tidyverse)
+
+diamondsdata = diamonds
+
+diamonds
+
+ggplot(diamondsdata, aes(x=carat, y=price)) + geom_point()
+
+ggplot(diamondsdata, aes(x=carat, y=price, colour= cut)) + geom_point()
+
+ggplot(diamondsdata, aes(x=carat, y=price, colour= cut)) + geom_point() + facet_wrap(~ color)
+
+```
+
+Task 2: There are 53,940 rows in the diamonds dataset. 
+
+Task 3: The relationship between carat and price is positive. As the number of carats increases, the price also increases. 
+
+Task 4: The majority of the premium cut diamonds are of higher carat and of higher price. 
+
+Task 5: All color of diamonds are experiencing the same trend, as the carat increases so does the price. Color D seems to be the most expensive. There are some instances where just 1 carat can cost as much as $20,000. 
+
+Task 6:
+```{r}
+library(readr)
+InventoryData <- read_csv("InventoryData.csv")
+View(InventoryData)
+
+
+```
+
+```{r}
+inventoryA <- InventoryData %>% 
+  filter(Supplier == "A")
+
+inventoryA = mutate(inventoryA, OnHandRatio = `On Hand` / `Annual Demand`)
+
+dim(inventoryA)
+
+```
+
+
+Task 7: In the inventoryA dataset, there are 3,695 rows.
+
+Task 8: The code shown on the assignment sheet adds a column called "OnHandRatio" to the "inventoryA" dataset that is consists of dividing the "OnHand" amount by the "Annual Demand" amount. 
+
+Task 9: 
+```{r}
+
+avg_cost <- InventoryData %>% 
+  group_by(`Item SKU`) %>%
+  summarize(SKUAvgCost = mean(`Cost per Unit ($)`))
+
+view(avg_cost)
+```
+
+Task 10: Personally, I didn't find the concepts covered in MIS 503 to be very challenging. One thing I would like clarification on is when the would it be more appropriate to create a tibble instead of a data frame and vice versa.  
+

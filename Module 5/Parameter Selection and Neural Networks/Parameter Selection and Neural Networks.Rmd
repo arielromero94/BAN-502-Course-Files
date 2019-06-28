@@ -1,0 +1,113 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+#Ariel Romero
+
+## Parameter Selection and Neural Networks
+
+```{r}
+
+library(tidyverse)
+library(caret)
+library(nnet)
+
+parole <- read_csv("parole.csv")
+
+parole = parole %>% mutate(male = as_factor(as.character(male))) %>%
+mutate(male = fct_recode(male,
+"female" = "0",
+"male" = "1")) %>% mutate(race = as_factor(as.character(race))) %>%
+mutate(race = fct_recode(race,
+"white" = "1",
+"other" = "2")) %>% mutate(state = as_factor(as.character(state))) %>%
+mutate(state = fct_recode(state,
+"Kentucky" = "2",
+"Louisiana" = "3",
+"Virginia" = "4",
+"other" = "1")) %>% mutate(crime = as_factor(as.character(crime))) %>%
+mutate(crime = fct_recode(crime,
+"larceny" = "2",
+"drug-related" = "3",
+"driving-related" = "4",
+"other" = "1")) %>% mutate(multiple.offenses = as_factor(as.character(multiple.offenses))) %>%
+mutate(multiple.offenses = fct_recode(multiple.offenses,
+"otherwise" = "0",
+"multiple offenses" = "1")) %>% mutate(violator = as_factor(as.character(violator))) %>%
+mutate(violator = fct_recode(violator,
+"non-violator" = "0",
+"violator" = "1"))
+
+set.seed(12345)
+train.rows = createDataPartition(y = parole$violator, p=0.7, list = FALSE)
+train = parole[train.rows,] 
+test = parole[-train.rows,]
+
+fitControl = trainControl(method = "cv", 
+                           number = 10)
+
+nnetGrid <-  expand.grid(size = 12, decay = 0.1)
+
+set.seed(1234)
+nnetBasic = train(violator ~ ., 
+                parole,
+                 method = "nnet",
+                 tuneGrid = nnetGrid,
+                 trControl = fitControl,
+                 verbose = FALSE,
+                 trace = FALSE)
+
+```
+
+
+```{r}
+nnetBasic
+```
+
+```{r}
+predTrain = predict(nnetBasic,train)
+
+confusionMatrix(predTrain,train$violator)
+```
+
+```{r}
+fitControl2 = trainControl(method = "cv", 
+                           number = 10)
+
+nnetGrid2 =  expand.grid(size = seq(from = 1, to = 12, by = 1),
+                         decay = seq(from = 0.1, to = 0.5, by = 0.1))
+
+set.seed(1234)
+nnetBasic2 = train(violator ~ ., 
+                parole,
+                 method = "nnet",
+                 tuneGrid = nnetGrid,
+                 trControl = fitControl,
+                 verbose = FALSE,
+                 trace = FALSE)
+```
+
+```{r}
+nnetBasic2
+```
+
+```{r}
+predTrain2 = predict(nnetBasic2,train)
+
+confusionMatrix(predTrain2,train$violator)
+```
+
+```{r}
+predTest = predict(nnetBasic,train)
+
+confusionMatrix(predTest, train$violator)
+```
+
+```{r}
+predTest2 = predict(nnetBasic2, test)
+
+confusionMatrix(predTest2, test$violator)
+```
+
+There does appear to be overfitting on both models created in Tasks 2 and 4. Both models give the same results for the testing and training datasets. 
